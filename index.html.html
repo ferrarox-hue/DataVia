@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>DataVía · Panel de Monitoreo Vial</title>
+  <meta name="description" content="DataVía: inteligencia vial en tiempo real para Misiones. Estado de rutas, caudal vehicular, visibilidad y accesos a Posadas. Dashboard técnico con datos precisos." />
+  <meta name="keywords" content="tránsito Misiones, reporte vial, datos tránsito, DataVía, monitoreo rutas" />
+  <meta name="author" content="Néstor Ferraro" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='50' fill='%230B1C33'/%3E%3Ccircle cx='50' cy='50' r='45' fill='none' stroke='white' stroke-width='3.5'/%3E%3Cpolygon points='50,18 38,82 18,82' fill='%2300B89C'/%3E%3Cpolygon points='50,18 62,82 82,82' fill='%2300B89C'/%3E%3Cpolygon points='39.3,75 60.7,75 62,82 38,82' fill='white'/%3E%3Cpolygon points='41.2,65 58.8,65 59.9,71 40.1,71' fill='white'/%3E%3Cpolygon points='42.7,57 57.3,57 58.25,62 41.75,62' fill='white'/%3E%3Cpolygon points='44.2,49 55.8,49 56.6,53 43.4,53' fill='white'/%3E%3Cpolygon points='45.5,42 54.5,42 55.25,46 44.75,46' fill='white'/%3E%3C/svg%3E" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700;14..32,800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    :root {
+      --bg-deep: #0A0F1A;
+      --bg-card: #111827;
+      --bg-card-light: #1A2332;
+      --teal: #00B89C;
+      --teal-glow: rgba(0,184,156,0.2);
+      --white: #FFFFFF;
+      --gray: #9CA3AF;
+      --red: #EF4444;
+      --orange: #F59E0B;
+      --green: #10B981;
+      --radius: 16px;
+      --shadow: 0 8px 20px rgba(0,0,0,0.3);
+    }
+    body {
+      background: radial-gradient(ellipse at 20% 30%, #0E1525, #03060C);
+      font-family: 'Inter', sans-serif;
+      color: var(--white);
+      line-height: 1.5;
+      min-height: 100vh;
+    }
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg-card); border-radius: 10px; }
+    ::-webkit-scrollbar-thumb { background: var(--teal); border-radius: 10px; }
+    .navbar {
+      background: rgba(10, 15, 26, 0.85);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid rgba(0,184,156,0.3);
+      padding: 0.8rem 2rem;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .nav-container {
+      max-width: 1400px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 0.8rem;
+    }
+    .logo svg {
+      width: 48px;
+      height: 48px;
+      filter: drop-shadow(0 0 5px var(--teal));
+    }
+    .logo-text h1 {
+      font-size: 1.6rem;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+    }
+    .logo-text span {
+      color: var(--teal);
+    }
+    .logo-text p {
+      font-size: 0.7rem;
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--teal);
+      letter-spacing: 1px;
+    }
+    .nav-links {
+      display: flex;
+      gap: 1.2rem;
+      align-items: center;
+    }
+    .btn-wa, .btn-ig, .btn-contact {
+      padding: 0.5rem 1rem;
+      border-radius: 40px;
+      text-decoration: none;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.85rem;
+    }
+    .btn-wa { background: #25D366; color: #fff; }
+    .btn-ig { background: linear-gradient(135deg, #f09433, #e6683c, #dc2743); color: #fff; }
+    .btn-contact { background: transparent; border: 1px solid var(--teal); color: var(--teal); }
+    .btn-contact:hover { background: var(--teal); color: var(--bg-deep); }
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 2rem;
+    }
+    .dashboard-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1.5rem;
+      margin-bottom: 2rem;
+    }
+    .card {
+      background: var(--bg-card);
+      backdrop-filter: blur(4px);
+      border-radius: var(--radius);
+      border: 1px solid rgba(0,184,156,0.2);
+      padding: 1.2rem;
+      transition: all 0.2s;
+      box-shadow: var(--shadow);
+    }
+    .card:hover {
+      border-color: var(--teal);
+      transform: translateY(-2px);
+    }
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1rem;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+      padding-bottom: 0.6rem;
+    }
+    .card-title {
+      font-weight: 600;
+      color: var(--teal);
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+    }
+    .card-value {
+      font-size: 1.8rem;
+      font-weight: 700;
+      font-family: 'JetBrains Mono', monospace;
+      margin: 0.5rem 0;
+    }
+    .unit {
+      font-size: 0.8rem;
+      color: var(--gray);
+      font-weight: normal;
+    }
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      background: rgba(0,184,156,0.12);
+      padding: 0.2rem 0.7rem;
+      border-radius: 20px;
+      font-size: 0.7rem;
+      font-weight: 600;
+      color: var(--teal);
+    }
+    .badge-red { background: rgba(239,68,68,0.15); color: var(--red); }
+    .badge-orange { background: rgba(245,158,11,0.15); color: var(--orange); }
+    .badge-green { background: rgba(16,185,129,0.15); color: var(--green); }
+    .map-container {
+      background: #0F172A;
+      border-radius: var(--radius);
+      padding: 1rem;
+      border: 1px solid var(--teal);
+      margin: 1.5rem 0;
+    }
+    #map {
+      height: 350px;
+      border-radius: 12px;
+      background: #07101F;
+    }
+    .sponsor-simple {
+      background: linear-gradient(145deg, var(--bg-card-light), var(--bg-card));
+      border-radius: var(--radius);
+      padding: 2rem;
+      margin: 2rem 0;
+      text-align: center;
+      border: 1px solid rgba(0,184,156,0.3);
+    }
+    .btn-sponsor {
+      background: var(--teal);
+      color: var(--bg-deep);
+      padding: 0.8rem 2rem;
+      border-radius: 40px;
+      text-decoration: none;
+      font-weight: 700;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.8rem;
+      font-size: 1rem;
+      transition: 0.2s;
+    }
+    .btn-sponsor:hover {
+      background: var(--white);
+      color: var(--bg-deep);
+      box-shadow: 0 0 12px var(--teal);
+    }
+    footer {
+      text-align: center;
+      padding: 1.5rem;
+      border-top: 1px solid rgba(0,184,156,0.2);
+      font-size: 0.75rem;
+      color: var(--gray);
+    }
+    @media (max-width: 700px) {
+      .container { padding: 1rem; }
+      .dashboard-grid { grid-template-columns: 1fr; }
+      .nav-links .btn-wa span, .nav-links .btn-ig span { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<nav class="navbar">
+  <div class="nav-container">
+    <div class="logo">
+      <svg viewBox="0 0 100 100" width="48" height="48"><circle cx="50" cy="50" r="50" fill="#0B1C33"/><circle cx="50" cy="50" r="45" fill="none" stroke="white" stroke-width="3.5"/><polygon points="50,18 38,82 18,82" fill="#00B89C"/><polygon points="50,18 62,82 82,82" fill="#00B89C"/><polygon points="39.3,75 60.7,75 62,82 38,82" fill="white"/><polygon points="41.2,65 58.8,65 59.9,71 40.1,71" fill="white"/><polygon points="42.7,57 57.3,57 58.25,62 41.75,62" fill="white"/><polygon points="44.2,49 55.8,49 56.6,53 43.4,53" fill="white"/><polygon points="45.5,42 54.5,42 55.25,46 44.75,46" fill="white"/></svg>
+      <div class="logo-text"><h1>DATA<span>VÍA</span></h1><p>INTELIGENCIA EN MOVIMIENTO</p></div>
+    </div>
+    <div class="nav-links">
+      <a href="https://whatsapp.com/channel/0029VbCJFA18F2p7T4Cqdz0M" target="_blank" class="btn-wa"><i class="fab fa-whatsapp"></i><span>Canal</span></a>
+      <a href="https://instagram.com/dataviareporte" target="_blank" class="btn-ig"><i class="fab fa-instagram"></i><span>Instagram</span></a>
+    </div>
+  </div>
+</nav>
+
+<div class="container">
+  <!-- Dashboard cards -->
+  <div class="dashboard-grid">
+    <div class="card">
+      <div class="card-header"><span class="card-title"><i class="fas fa-road"></i> RN12 CENTRO</span><span class="status-badge" id="rn12-badge">● EN VIVO</span></div>
+      <div class="card-value"><span id="rn12-caudal">845</span> <span class="unit">veh/h</span></div>
+      <div><span id="rn12-estado">Flujo moderado</span> · <span id="rn12-vis">Visibilidad buena</span></div>
+    </div>
+    <div class="card">
+      <div class="card-header"><span class="card-title"><i class="fas fa-city"></i> ACCESO SUR POSADAS</span><span class="status-badge" id="sur-badge">● EN VIVO</span></div>
+      <div class="card-value"><span id="sur-caudal">1260</span> <span class="unit">veh/h</span></div>
+      <div><span id="sur-estado">Intenso, constante</span> · <span id="sur-vis">Visibilidad buena</span></div>
+    </div>
+    <div class="card">
+      <div class="card-header"><span class="card-title"><i class="fas fa-bridge"></i> PUENTE INTERNACIONAL</span><span class="status-badge">⏱ TIEMPO REAL</span></div>
+      <div class="card-value"><span id="puente-tiempo">12</span> <span class="unit">min a Encarnación</span></div>
+      <div>Espera de regreso: <span id="puente-vuelta">18</span> min</div>
+    </div>
+  </div>
+
+  <!-- Mapa con marcadores -->
+  <div class="map-container">
+    <div class="card-header" style="border:none; margin-bottom:0.5rem;"><span class="card-title"><i class="fas fa-map-marked-alt"></i> PUNTOS DE MONITOREO</span><span class="status-badge">ACTUALIZACIÓN 5min</span></div>
+    <div id="map"></div>
+    <div style="display:flex; justify-content:space-between; margin-top:12px; gap:0.5rem; flex-wrap:wrap;">
+      <span style="background:rgba(0,184,156,0.2); padding:2px 8px; border-radius:20px;"><i class="fas fa-car"></i> Accesos Posadas</span>
+      <span style="background:rgba(239,68,68,0.2); padding:2px 8px; border-radius:20px;"><i class="fas fa-road"></i> Nodo Zaimán: atención</span>
+      <span style="background:rgba(245,158,11,0.2); padding:2px 8px; border-radius:20px;"><i class="fas fa-hard-hat"></i> Obras Quaranta</span>
+    </div>
+  </div>
+
+  <!-- Sección auspicios simplificada -->
+  <div class="sponsor-simple">
+    <i class="fas fa-chart-line" style="font-size: 2rem; color: var(--teal);"></i>
+    <h2 style="margin: 1rem 0;">Publicitá tu marca en DataVía</h2>
+    <p style="max-width: 600px; margin: 0 auto 1.5rem;">Llegá a miles de conductores misioneros todos los días con el reporte de tránsito más escuchado de la región.</p>
+    <a href="mailto:dataviainteligenciavial@gmail.com?subject=Quiero%20publicitar%20en%20DataVía" class="btn-sponsor"><i class="fas fa-envelope"></i> Contactar ahora</a>
+  </div>
+</div>
+
+<footer>
+  <p>© 2026 DataVía · Monitoreo vial en tiempo real · Datos actualizados cada 5 minutos</p>
+  <p><a href="mailto:dataviainteligenciavial@gmail.com" style="color:var(--teal);">Contacto comercial</a> | <a href="https://instagram.com/dataviareporte" style="color:var(--teal);">@dataviareporte</a></p>
+</footer>
+
+<script>
+  // Inicializar mapa Leaflet con marcadores
+  const map = L.map('map').setView([-27.3666, -55.8969], 8); // Centro en Posadas, zoom 8
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> & CartoDB',
+    subdomains: 'abcd',
+    maxZoom: 12,
+    minZoom: 6
+  }).addTo(map);
+
+  // Definir ubicaciones (nombre, coordenadas, ícono personalizado opcional)
+  const ubicaciones = [
+    { nombre: "Posadas (Acceso Sur)", coords: [-27.4441, -55.8479], desc: "Punto crítico, caudal variable" },
+    { nombre: "Acceso Oeste (Itaembé)", coords: [-27.4025, -55.8480], desc: "Tránsito intenso hacia capital" },
+    { nombre: "Eldorado", coords: [-26.3992, -54.6214], desc: "RN12 norte" },
+    { nombre: "Jardín América", coords: [-27.0425, -55.1432], desc: "RN12 centro-sur" },
+    { nombre: "Oberá", coords: [-27.4852, -55.1196], desc: "RN14, nudo vial" },
+    { nombre: "San Vicente", coords: [-26.9998, -54.4858], desc: "RN14 sur" },
+    { nombre: "Puerto Iguazú", coords: [-25.5984, -54.5734], desc: "RN12 norte, acceso a cataratas" },
+    { nombre: "Puente Internacional", coords: [-27.3350, -55.8660], desc: "Frontera con Encarnación" }
+  ];
+
+  // Agregar marcadores
+  ubicaciones.forEach(loc => {
+    const marker = L.marker(loc.coords).addTo(map);
+    marker.bindPopup(`<b>${loc.nombre}</b><br>${loc.desc}`);
+  });
+
+  // Simulación de datos dinámicos (cada 5 minutos)
+  function actualizarDashboard() {
+    const rn12Caudal = Math.floor(Math.random() * (1300 - 500 + 1) + 500);
+    const surCaudal = Math.floor(Math.random() * (1900 - 800 + 1) + 800);
+    const puenteIda = Math.floor(Math.random() * (20 - 5 + 1) + 5);
+    const puenteVuelta = puenteIda + Math.floor(Math.random() * 10 + 2);
+    
+    let rn12Estado = rn12Caudal > 1000 ? "Flujo intenso" : (rn12Caudal > 700 ? "Moderado" : "Fluido");
+    let surEstado = surCaudal > 1500 ? "Muy cargado, demoras en Zaimán" : (surCaudal > 1100 ? "Intenso, constante" : "Normal");
+    
+    document.getElementById('rn12-caudal').innerText = rn12Caudal;
+    document.getElementById('rn12-estado').innerHTML = rn12Estado;
+    document.getElementById('sur-caudal').innerText = surCaudal;
+    document.getElementById('sur-estado').innerHTML = surEstado;
+    document.getElementById('puente-tiempo').innerText = puenteIda;
+    document.getElementById('puente-vuelta').innerText = puenteVuelta;
+    
+    // Cambiar badges según criticidad
+    const rn12Badge = document.getElementById('rn12-badge');
+    const surBadge = document.getElementById('sur-badge');
+    if (rn12Caudal > 1000) rn12Badge.className = "status-badge badge-orange";
+    else rn12Badge.className = "status-badge badge-green";
+    if (surCaudal > 1500) surBadge.className = "status-badge badge-red";
+    else if (surCaudal > 1100) surBadge.className = "status-badge badge-orange";
+    else surBadge.className = "status-badge badge-green";
+    
+    // Visibilidad simulada
+    const visibilidades = ["Buena", "Buena", "Buena", "Regular", "Niebla dispersa"];
+    let rnVis = visibilidades[Math.floor(Math.random() * visibilidades.length)];
+    let surVis = visibilidades[Math.floor(Math.random() * visibilidades.length)];
+    document.getElementById('rn12-vis').innerText = `Visibilidad ${rnVis.toLowerCase()}`;
+    document.getElementById('sur-vis').innerText = `Visibilidad ${surVis.toLowerCase()}`;
+  }
+  
+  actualizarDashboard();
+  setInterval(actualizarDashboard, 300000);
+</script>
+</body>
+</html>
